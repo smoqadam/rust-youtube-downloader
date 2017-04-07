@@ -1,0 +1,46 @@
+extern crate hyper;
+extern crate hyper_native_tls;
+extern crate serde_json;
+
+use std::collections::HashMap;
+use hyper::Url;
+use hyper::client::response::Response;
+use hyper::Client;
+use hyper::net::HttpsConnector;
+use hyper_native_tls::NativeTlsClient;
+use std::io::Read;
+use serde_json::Value;
+
+fn main() {
+
+    let ssl = NativeTlsClient::new().unwrap();
+    let connector = HttpsConnector::new(ssl);
+    let client = Client::with_connector(connector);
+
+    let mut response = match client.get("http://youtube.com/get_video_info?video_id=cv53BKMYsy0")
+              .send() {
+        Ok(response) => response,
+        Err(why) => panic!("{}", why),
+    };
+    download(&mut response);
+    // println!("content is {:?}", res);
+}
+
+fn download(response:&mut  Response) {
+    let mut response_str = String::new();
+    response.read_to_string(&mut response_str).unwrap();
+    let stream = parse_str(&response_str);
+    let stream = stream.get(&"url_encoded_fmt_stream_map").unwrap();
+    println!("content is {:?}", stream);
+}
+
+fn parse_str(input: &str) -> HashMap<&str, &str> {
+    let v = input.split("&");
+    let mut output = HashMap::new();
+    for c in v {
+        let t: Vec<&str> = c.split("=").collect();
+        output.insert(t[0], t[1]);
+    }
+
+    output
+}

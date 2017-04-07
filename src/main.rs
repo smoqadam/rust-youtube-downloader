@@ -1,0 +1,125 @@
+extern crate hyper;
+extern crate hyper_native_tls;
+extern crate pbr;
+
+use std::env;
+use pbr::ProgressBar;
+use std::str;
+use std::collections::HashMap;
+use hyper::client::response::Response;
+use hyper::Client;
+use hyper::net::HttpsConnector;
+use hyper_native_tls::NativeTlsClient;
+use std::io::Read;
+use std::io::prelude::*;
+use std::fs::File;
+
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    let url = format!("http://youtube.com/get_video_info?video_id={}", args[1]);
+    download(&url);
+}
+
+fn download(url: &str) {
+    let mut response = send_requst(url);
+    let mut response_str = String::new();
+    response.read_to_string(&mut response_str).unwrap();
+    let hq = parse_url(&response_str);
+    // get video info
+    let streams: Vec<&str> = hq.get("url_encoded_fmt_stream_map")
+        .unwrap()
+        .split(",")
+        .collect();
+
+    // get video title
+    let title = hq.get("title").unwrap();
+
+    let mut i = 0;
+
+    // list of available qualities
+    let mut qualities: HashMap<i32, String> = HashMap::new();
+    for url in streams.iter() {
+        i += 1;
+        let quality = parse_url(&url);
+        qualities.insert(i, quality.get("url").unwrap().to_string());
+        println!("{}- {} {}",
+                 i,
+                 quality.get("quality").unwrap(),
+                 quality.get("type").unwrap());
+    }
+
+    println!("Choose quality: ");
+    let intput = read_line().trim().parse().unwrap();
+
+    println!("Please wait...");
+
+    // get response from selected quality
+    let mut response = send_requst(qualities.get(&intput).unwrap());
+    println!("Download is starting...");
+    
+    //get headers
+    let headers = std::mem::replace(&mut response.headers, hyper::header::Headers::new());
+
+    // get file size from Content-Length header
+    let content_length_header = headers.get_raw("Content-Length").unwrap();
+    let file_size = str::from_utf8(&content_length_header[0])
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+
+    // write file to disk
+    write_file(response, title, file_size);
+}
+
+fn write_file(mut response: Response, title: &str, file_size: u64) {
+
+    // initialize progressbar
+    let mut pb = ProgressBar::new(file_size);
+    pb.format("╢▌▌░╟");
+
+    // Download and write to file
+    let mut buf = [0; 128 * 1024];
+    let mut file = File::create(title).unwrap();
+    loop {
+        match response.read(&mut buf) {
+            Ok(len) => {
+                file.write_all(&buf[..len]).unwrap();
+                pb.add(len as u64);
+                if len == 0 {
+                    break;
+                }
+                len
+            }
+            Err(why) => panic!("{}", why),
+        };
+    }
+
+}
+
+fn send_requst(url: &str) -> Response {
+    let ssl = NativeTlsClient::new().unwrap();
+    let connector = HttpsConnector::new(ssl);
+    let client = Client::with_connector(connector);
+    let response = match client.get(url).send() {
+        Ok(response) => response,
+        Err(why) => panic!("{}", why),
+    };
+    response
+}
+
+
+fn parse_url(query: &str) -> HashMap<String, String> {
+    let u = format!("{}{}", "http://e.com?", query);
+    let parsed_url = hyper::Url::parse(&u).unwrap();
+    let hash_query: HashMap<String, String> = parsed_url.query_pairs().into_owned().collect();
+    hash_query
+}
+
+
+fn read_line() -> String {
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input).expect("Could not read stdin!");
+    return input;
+}
