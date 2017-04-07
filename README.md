@@ -1,5 +1,5 @@
 ## Rust Youtube Downloader
-Download youtube videos written in Rust
+Youtube video downloader written in Rust
 
 ## How to use
 
