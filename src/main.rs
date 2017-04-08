@@ -38,11 +38,20 @@ fn download(url: &str) {
     let mut i = 0;
 
     // list of available qualities
-    let mut qualities: HashMap<i32, String> = HashMap::new();
+    let mut qualities: HashMap<i32, (String, String)> = HashMap::new();
     for url in streams.iter() {
         i += 1;
         let quality = parse_url(&url);
-        qualities.insert(i, quality.get("url").unwrap().to_string());
+        let extension = quality.get("type")
+            .unwrap()
+            .split("/")
+            .nth(1)
+            .unwrap()
+            .split(";")
+            .next()
+            .unwrap();
+        qualities.insert(i,
+                         (quality.get("url").unwrap().to_string(), extension.to_owned()));
         println!("{}- {} {}",
                  i,
                  quality.get("quality").unwrap(),
@@ -50,15 +59,18 @@ fn download(url: &str) {
     }
 
     println!("Choose quality: ");
-    let intput = read_line().trim().parse().unwrap();
+    let input = read_line().trim().parse().unwrap();
 
     println!("Please wait...");
 
+    let url = &qualities.get(&input).unwrap().0;
+    let extension = &qualities.get(&input).unwrap().1;
+
     // get response from selected quality
-    let mut response = send_request(qualities.get(&intput).unwrap());
+    let mut response = send_request(url);
     println!("Download is starting...");
-    
-    //get headers
+
+    // get headers
     let headers = std::mem::replace(&mut response.headers, hyper::header::Headers::new());
 
     // get file size from Content-Length header
@@ -69,8 +81,10 @@ fn download(url: &str) {
         .parse()
         .unwrap();
 
+    let filename = format!("{}.{}", title, extension);
+
     // write file to disk
-    write_file(response, title, file_size);
+    write_file(response, &filename, file_size);
 }
 
 fn write_file(mut response: Response, title: &str, file_size: u64) {
@@ -102,19 +116,17 @@ fn send_request(url: &str) -> Response {
     let ssl = NativeTlsClient::new().unwrap();
     let connector = HttpsConnector::new(ssl);
     let client = Client::with_connector(connector);
-    let response = match client.get(url).send() {
+    match client.get(url).send() {
         Ok(response) => response,
         Err(why) => panic!("{}", why),
-    };
-    response
+    }
 }
 
 
 fn parse_url(query: &str) -> HashMap<String, String> {
     let u = format!("{}{}", "http://e.com?", query);
     let parsed_url = hyper::Url::parse(&u).unwrap();
-    let hash_query: HashMap<String, String> = parsed_url.query_pairs().into_owned().collect();
-    hash_query
+    parsed_url.query_pairs().into_owned().collect()
 }
 
 
