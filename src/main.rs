@@ -42,6 +42,12 @@ fn download(url: &str) {
     let mut response_str = String::new();
     response.read_to_string(&mut response_str).unwrap();
     let hq = parse_url(&response_str);
+
+    if hq["status"] != "ok" {
+        println!("Video not found!");
+        return;
+    }
+
     // get video info
     let streams: Vec<&str> = hq.get("url_encoded_fmt_stream_map")
         .unwrap()
