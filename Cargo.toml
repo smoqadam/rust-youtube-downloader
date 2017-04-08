@@ -7,3 +7,7 @@ authors = ["smoqadam <phpro.ir@gmail.com>"]
 hyper="*"
 hyper-native-tls="*"
 pbr="*"
+
+[[bin]]
+name = "youtube-downloader"
+path = "src/main.rs"
