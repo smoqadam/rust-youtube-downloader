@@ -121,5 +121,5 @@ fn parse_url(query: &str) -> HashMap<String, String> {
 fn read_line() -> String {
     let mut input = String::new();
     std::io::stdin().read_line(&mut input).expect("Could not read stdin!");
-    return input;
+    input
 }
