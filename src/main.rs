@@ -22,7 +22,7 @@ fn main() {
 }
 
 fn download(url: &str) {
-    let mut response = send_requst(url);
+    let mut response = send_request(url);
     let mut response_str = String::new();
     response.read_to_string(&mut response_str).unwrap();
     let hq = parse_url(&response_str);
@@ -55,7 +55,7 @@ fn download(url: &str) {
     println!("Please wait...");
 
     // get response from selected quality
-    let mut response = send_requst(qualities.get(&intput).unwrap());
+    let mut response = send_request(qualities.get(&intput).unwrap());
     println!("Download is starting...");
     
     //get headers
@@ -98,7 +98,7 @@ fn write_file(mut response: Response, title: &str, file_size: u64) {
 
 }
 
-fn send_requst(url: &str) -> Response {
+fn send_request(url: &str) -> Response {
     let ssl = NativeTlsClient::new().unwrap();
     let connector = HttpsConnector::new(ssl);
     let client = Client::with_connector(connector);
