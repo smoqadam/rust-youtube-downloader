@@ -18,7 +18,6 @@ use std::fs::File;
 use clap::{Arg, App};
 use regex::Regex;
 
-
 fn main() {
     //Regex for youtube URLs.
     let url_regex = Regex::new(r"^.*(?:(?:youtu\.be/|v/|vi/|u/w/|embed/)|(?:(?:watch)?\?v(?:i)?=|\&v(?:i)?=))([^#\&\?]*).*").unwrap();
@@ -34,7 +33,7 @@ fn main() {
         let vid_split = url_regex.captures(vid).unwrap();
         vid = vid_split.get(1).unwrap().as_str();
     }
-    let url = format!("http://youtube.com/get_video_info?video_id={}", vid);
+    let url = format!("https://youtube.com/get_video_info?video_id={}", vid);
     download(&url);
 }
 
