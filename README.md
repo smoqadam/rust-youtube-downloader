@@ -6,7 +6,7 @@ Youtube video downloader written in Rust
 ```bash
 $ git clone https://github.com/smoqadam/rust-youtube-downloader`
 $ cd rust-youtube-downloader
-$ cargo run -- [youtube video id]
+$ cargo run -- [youtube video id or youtube URL]
 ```
 
 for example:

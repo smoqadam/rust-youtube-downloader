@@ -7,3 +7,5 @@ authors = ["smoqadam <phpro.ir@gmail.com>"]
 hyper="*"
 hyper-native-tls="*"
 pbr="*"
+clap="*"
+regex="*"

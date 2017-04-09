@@ -1,8 +1,9 @@
 extern crate hyper;
 extern crate hyper_native_tls;
 extern crate pbr;
+extern crate clap;
+extern crate regex;
 
-use std::env;
 use pbr::ProgressBar;
 use std::str;
 use std::collections::HashMap;
@@ -13,11 +14,26 @@ use hyper_native_tls::NativeTlsClient;
 use std::io::Read;
 use std::io::prelude::*;
 use std::fs::File;
+use clap::{Arg, App};
+use regex::Regex;
 
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let url = format!("http://youtube.com/get_video_info?video_id={}", args[1]);
+    //Regex for youtube URLs.
+    let url_regex = Regex::new(r"^.*(?:(?:youtu\.be/|v/|vi/|u/w/|embed/)|(?:(?:watch)?\?v(?:i)?=|\&v(?:i)?=))([^#\&\?]*).*").unwrap();
+    let args = App::new("youtube-downloader")
+        .version("0.1.0")
+        .arg(Arg::with_name("video-id")
+                 .help("The ID of the video to download.")
+                 .required(true)
+                 .index(1))
+        .get_matches();
+    let mut vid = args.value_of("video-id").unwrap();
+    if url_regex.is_match(vid) {
+        let mut vid_split = url_regex.captures(vid).unwrap();
+        vid = vid_split.get(1).unwrap().as_str();
+    }
+    let url = format!("http://youtube.com/get_video_info?video_id={}", vid);
     download(&url);
 }
 
@@ -42,7 +58,8 @@ fn download(url: &str) {
     for url in streams.iter() {
         i += 1;
         let quality = parse_url(&url);
-        let extension = quality.get("type")
+        let extension = quality
+            .get("type")
             .unwrap()
             .split("/")
             .nth(1)
@@ -132,6 +149,8 @@ fn parse_url(query: &str) -> HashMap<String, String> {
 
 fn read_line() -> String {
     let mut input = String::new();
-    std::io::stdin().read_line(&mut input).expect("Could not read stdin!");
+    std::io::stdin()
+        .read_line(&mut input)
+        .expect("Could not read stdin!");
     input
 }
