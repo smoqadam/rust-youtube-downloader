@@ -1,6 +1,7 @@
 extern crate hyper;
 extern crate hyper_native_tls;
 extern crate pbr;
+extern crate clap;
 
 use std::env;
 use pbr::ProgressBar;
@@ -13,11 +14,18 @@ use hyper_native_tls::NativeTlsClient;
 use std::io::Read;
 use std::io::prelude::*;
 use std::fs::File;
+use clap::{Arg, App};
 
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let url = format!("http://youtube.com/get_video_info?video_id={}", args[1]);
+    //let args: Vec<String> = env::args().collect();
+    let args = App::new("youtube-downloader")
+        .version("0.1.0")
+        .arg(Arg::with_name("video-id")
+             .help("The ID of the video to download.")
+             .required(true)
+             .index(1)).get_matches();
+    let url = format!("http://youtube.com/get_video_info?video_id={}", args.value_of("video-id").unwrap());
     download(&url);
 }
 
