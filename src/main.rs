@@ -11,6 +11,7 @@ use hyper::client::response::Response;
 use hyper::Client;
 use hyper::net::HttpsConnector;
 use hyper_native_tls::NativeTlsClient;
+use hyper::header::ContentLength;
 use std::io::Read;
 use std::io::prelude::*;
 use std::fs::File;
@@ -24,13 +25,13 @@ fn main() {
     let args = App::new("youtube-downloader")
         .version("0.1.0")
         .arg(Arg::with_name("video-id")
-                 .help("The ID of the video to download.")
-                 .required(true)
-                 .index(1))
+            .help("The ID of the video to download.")
+            .required(true)
+            .index(1))
         .get_matches();
     let mut vid = args.value_of("video-id").unwrap();
     if url_regex.is_match(vid) {
-        let mut vid_split = url_regex.captures(vid).unwrap();
+        let vid_split = url_regex.captures(vid).unwrap();
         vid = vid_split.get(1).unwrap().as_str();
     }
     let url = format!("http://youtube.com/get_video_info?video_id={}", vid);
@@ -84,19 +85,11 @@ fn download(url: &str) {
     let extension = &qualities.get(&input).unwrap().1;
 
     // get response from selected quality
-    let mut response = send_request(url);
+    let response = send_request(url);
     println!("Download is starting...");
 
-    // get headers
-    let headers = std::mem::replace(&mut response.headers, hyper::header::Headers::new());
-
     // get file size from Content-Length header
-    let content_length_header = headers.get_raw("Content-Length").unwrap();
-    let file_size = str::from_utf8(&content_length_header[0])
-        .unwrap()
-        .trim()
-        .parse()
-        .unwrap();
+    let file_size = get_file_size(&response);
 
     let filename = format!("{}.{}", title, extension);
 
@@ -104,8 +97,17 @@ fn download(url: &str) {
     write_file(response, &filename, file_size);
 }
 
-fn write_file(mut response: Response, title: &str, file_size: u64) {
+// get file size from Content-Length header
+fn get_file_size(response: &Response) -> u64 {
+    let mut file_size = 0;
+    match response.headers.get::<ContentLength>(){
+        Some(length) => file_size = length.0,
+        None => println!("Content-Length header missing"),
+    };
+    file_size
+}
 
+fn write_file(mut response: Response, title: &str, file_size: u64) {
     // initialize progressbar
     let mut pb = ProgressBar::new(file_size);
     pb.format("╢▌▌░╟");
@@ -126,7 +128,6 @@ fn write_file(mut response: Response, title: &str, file_size: u64) {
             Err(why) => panic!("{}", why),
         };
     }
-
 }
 
 fn send_request(url: &str) -> Response {
