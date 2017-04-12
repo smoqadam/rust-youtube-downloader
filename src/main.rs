@@ -5,7 +5,7 @@ extern crate clap;
 extern crate regex;
 
 use pbr::ProgressBar;
-use std::str;
+use std::{process,str};
 use std::collections::HashMap;
 use hyper::client::response::Response;
 use hyper::Client;
@@ -45,7 +45,7 @@ fn download(url: &str) {
 
     if hq["status"] != "ok" {
         println!("Video not found!");
-        return;
+        process::exit(1);
     }
 
     // get video info
@@ -130,7 +130,10 @@ fn send_request(url: &str) -> Response {
     let ssl = NativeTlsClient::new().unwrap();
     let connector = HttpsConnector::new(ssl);
     let client = Client::with_connector(connector);
-    client.get(url).send().unwrap()
+    client.get(url).send().unwrap_or_else(|e| {
+        println!("Network request failed: {}", e);
+        process::exit(1);
+    })
 }
 
 fn parse_url(query: &str) -> HashMap<String, String> {
