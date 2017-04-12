@@ -2,6 +2,8 @@
 
 YouTube video downloader written in Rust.
 
+[![Build Status](https://travis-ci.org/smoqadam/rust-youtube-downloader.svg?branch=master)](https://travis-ci.org/smoqadam/rust-youtube-downloader)
+
 ## How to use
 
 ```bash
