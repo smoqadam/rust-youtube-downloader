@@ -3,6 +3,9 @@ extern crate hyper_native_tls;
 extern crate pbr;
 extern crate clap;
 extern crate regex;
+extern crate stderrlog;
+#[macro_use]
+extern crate log;
 
 use pbr::ProgressBar;
 use std::{process,str};
@@ -23,11 +26,23 @@ fn main() {
     let url_regex = Regex::new(r"^.*(?:(?:youtu\.be/|v/|vi/|u/w/|embed/)|(?:(?:watch)?\?v(?:i)?=|\&v(?:i)?=))([^#\&\?]*).*").unwrap();
     let args = App::new("youtube-downloader")
         .version("0.1.0")
+        .arg(Arg::with_name("verbose")
+             .help("Increase verbosity")
+             .short("v")
+             .multiple(true)
+             .long("verbose"))
         .arg(Arg::with_name("video-id")
             .help("The ID of the video to download.")
             .required(true)
             .index(1))
         .get_matches();
+
+    stderrlog::new()
+            .module(module_path!())
+            .verbosity(args.occurrences_of("verbose") as usize)
+            .init()
+            .expect("Unable to initialize stderr output");
+
     let mut vid = args.value_of("video-id").unwrap();
     if url_regex.is_match(vid) {
         let vid_split = url_regex.captures(vid).unwrap();
@@ -38,13 +53,14 @@ fn main() {
 }
 
 fn download(url: &str) {
+    debug!("Fetching video info from {}", url);
     let mut response = send_request(url);
     let mut response_str = String::new();
     response.read_to_string(&mut response_str).unwrap();
     let hq = parse_url(&response_str);
 
     if hq["status"] != "ok" {
-        println!("Video not found!");
+        error!("Video not found!");
         process::exit(1);
     }
 
@@ -52,6 +68,8 @@ fn download(url: &str) {
     let streams: Vec<&str> = hq["url_encoded_fmt_stream_map"]
         .split(',')
         .collect();
+
+    debug!("Available streams {:#?}", streams);
 
     // list of available qualities
     let mut qualities: HashMap<i32, (String, String)> = HashMap::new();
@@ -81,6 +99,7 @@ fn download(url: &str) {
     let extension = &qualities[&input].1;
 
     // get response from selected quality
+    debug!("Downloading {}", url);
     let response = send_request(url);
     println!("Download is starting...");
 
@@ -131,7 +150,7 @@ fn send_request(url: &str) -> Response {
     let connector = HttpsConnector::new(ssl);
     let client = Client::with_connector(connector);
     client.get(url).send().unwrap_or_else(|e| {
-        println!("Network request failed: {}", e);
+        error!("Network request failed: {}", e);
         process::exit(1);
     })
 }
