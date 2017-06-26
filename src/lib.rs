@@ -1,0 +1,83 @@
+//! Parser for youtube video information as returned by
+//! https://youtube.com/get_video_info?video_id={}
+
+#[macro_use]
+extern crate serde_derive;
+extern crate serde;
+extern crate serde_urlencoded;
+
+#[derive(Deserialize, Debug)]
+pub struct Stream {
+    pub url: String,
+    pub quality: Option<String>,
+    #[serde(rename = "type")]
+    pub stream_type: String,
+}
+
+impl Stream {
+    pub fn extension(&self) -> Option<&str> {
+        self.stream_type.split(';')
+            .next()
+            .and_then(|mimetype| mimetype.split('/').nth(1))
+    }
+}
+
+#[derive(Deserialize, Debug)]
+struct VideoInfoResponse {
+    author: String,
+    video_id: String,
+    status: String,
+    title: String,
+    thumbnail_url: String,
+    url_encoded_fmt_stream_map: String,
+    view_count: usize,
+    adaptive_fmts: String,
+}
+
+impl VideoInfoResponse {
+    pub fn fmt_streams(&self) -> Result<Vec<Stream>, serde_urlencoded::de::Error> {
+        let mut result = Vec::new();
+        // This field has a list of encoded stream dicts separated by commas
+        for input in self.url_encoded_fmt_stream_map.split(',') {
+            result.push(serde_urlencoded::from_str(input)?);
+        }
+        Ok(result)
+    }
+
+    pub fn adaptive_streams(&self) -> Result<Vec<Stream>, serde_urlencoded::de::Error> {
+        let mut result = Vec::new();
+        // This field has a list of encoded stream dicts separated by commas
+        for input in self.adaptive_fmts.split(',') {
+            result.push(serde_urlencoded::from_str(input)?);
+        }
+        Ok(result)
+    }
+}
+
+#[derive(Debug)]
+pub struct VideoInfo {
+    pub author: String,
+    pub video_id: String,
+    pub title: String,
+    pub thumbnail_url: String,
+    pub streams: Vec<Stream>,
+    pub view_count: usize,
+    pub adaptive_streams: Vec<Stream>,
+}
+
+impl VideoInfo {
+    pub fn parse(inp: &str) -> Result<VideoInfo, serde_urlencoded::de::Error> {
+        let resp: VideoInfoResponse = serde_urlencoded::from_str(inp)?;
+        let streams = resp.fmt_streams()?;
+        let adaptive_streams = resp.adaptive_streams()?;
+        Ok(VideoInfo {
+            author: resp.author,
+            video_id: resp.video_id,
+            title: resp.title,
+            thumbnail_url: resp.thumbnail_url,
+            streams: streams,
+            view_count: resp.view_count,
+            adaptive_streams: adaptive_streams,
+        })
+    }
+}
