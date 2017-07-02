@@ -32,6 +32,10 @@ fn main() {
              .short("v")
              .multiple(true)
              .long("verbose"))
+        .arg(Arg::with_name("adaptive")
+             .help("List adaptive streams, instead of video streams")
+             .short("A")
+             .long("adaptive"))
         .arg(Arg::with_name("video-id")
             .help("The ID of the video to download.")
             .required(true)
@@ -50,10 +54,10 @@ fn main() {
         vid = vid_split.get(1).unwrap().as_str();
     }
     let url = format!("https://youtube.com/get_video_info?video_id={}", vid);
-    download(&url);
+    download(&url, args.is_present("adaptive"));
 }
 
-fn download(url: &str) {
+fn download(url: &str, adaptive: bool) {
     debug!("Fetching video info from {}", url);
     let mut response = send_request(url);
     let mut response_str = String::new();
@@ -62,11 +66,23 @@ fn download(url: &str) {
     let info = VideoInfo::parse(&response_str).unwrap();
     debug!("Video info {:#?}", info);
 
-    for (i, stream) in info.streams.iter().enumerate() {
-        println!("{}- {} {}",
-                 i,
-                 stream.quality,
-                 stream.stream_type);
+    let streams = if adaptive {
+        info.adaptive_streams
+    } else {
+        info.streams
+    };
+
+    for (i, stream) in streams.iter().enumerate() {
+        if let Some(ref quality) = stream.quality {
+            println!("{}- {} {}",
+                     i,
+                     quality,
+                     stream.stream_type);
+        } else {
+            println!("{}- {}",
+                     i,
+                     stream.stream_type);
+        }
     }
 
     println!("Choose quality (0): ");
@@ -74,7 +90,7 @@ fn download(url: &str) {
 
     println!("Please wait...");
 
-    if let Some(ref stream) = info.streams.get(input) {
+    if let Some(ref stream) = streams.get(input) {
         // get response from selected quality
         debug!("Downloading {}", url);
         let response = send_request(&stream.url);
