@@ -31,12 +31,19 @@ struct VideoInfoResponse {
     thumbnail_url: String,
     url_encoded_fmt_stream_map: String,
     view_count: usize,
-    adaptive_fmts: String,
+    adaptive_fmts: Option<String>,
+    hlsvp: Option<String>,
 }
 
 impl VideoInfoResponse {
     pub fn fmt_streams(&self) -> Result<Vec<Stream>, serde_urlencoded::de::Error> {
         let mut result = Vec::new();
+
+        // this field may be empty
+        if self.url_encoded_fmt_stream_map.is_empty() {
+            return Ok(result);
+        }
+
         // This field has a list of encoded stream dicts separated by commas
         for input in self.url_encoded_fmt_stream_map.split(',') {
             result.push(serde_urlencoded::from_str(input)?);
@@ -46,9 +53,11 @@ impl VideoInfoResponse {
 
     pub fn adaptive_streams(&self) -> Result<Vec<Stream>, serde_urlencoded::de::Error> {
         let mut result = Vec::new();
-        // This field has a list of encoded stream dicts separated by commas
-        for input in self.adaptive_fmts.split(',') {
-            result.push(serde_urlencoded::from_str(input)?);
+        if let Some(ref fmts) = self.adaptive_fmts {
+            // This field has a list of encoded stream dicts separated by commas
+            for input in fmts.split(',') {
+                result.push(serde_urlencoded::from_str(input)?);
+            }
         }
         Ok(result)
     }
@@ -63,11 +72,23 @@ pub struct VideoInfo {
     pub streams: Vec<Stream>,
     pub view_count: usize,
     pub adaptive_streams: Vec<Stream>,
+    /// Video URL for videos with HLS streams
+    pub hlsvp: Option<String>,
 }
 
 impl VideoInfo {
-    pub fn parse(inp: &str) -> Result<VideoInfo, serde_urlencoded::de::Error> {
-        let resp: VideoInfoResponse = serde_urlencoded::from_str(inp)?;
+    pub fn parse(inp: &str) -> Result<VideoInfo, Error> {
+        let resp: VideoInfoResponse = match serde_urlencoded::from_str(inp) {
+            Ok(r) => r,
+            Err(original_err) => {
+                // attempt to decode error info
+                let error_info: ErrorInfo = match serde_urlencoded::from_str(inp) {
+                    Ok(error_info) => error_info,
+                    Err(_) => return Err(Error::from(original_err)),
+                };
+                return Err(Error::from(error_info));
+            }
+        };
         let streams = resp.fmt_streams()?;
         let adaptive_streams = resp.adaptive_streams()?;
         Ok(VideoInfo {
@@ -78,6 +99,30 @@ impl VideoInfo {
             streams: streams,
             view_count: resp.view_count,
             adaptive_streams: adaptive_streams,
+            hlsvp: resp.hlsvp,
         })
+    }
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ErrorInfo {
+    pub reason: String,
+}
+
+#[derive(Debug)]
+pub enum Error {
+    JsonError(serde_urlencoded::de::Error),
+    Youtube(ErrorInfo),
+}
+
+impl From<serde_urlencoded::de::Error> for Error {
+    fn from(e: serde_urlencoded::de::Error) -> Self {
+        Error::JsonError(e)
+    }
+}
+
+impl From<ErrorInfo> for Error {
+    fn from(e: ErrorInfo) -> Self {
+        Error::Youtube(e)
     }
 }
