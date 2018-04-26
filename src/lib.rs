@@ -5,6 +5,7 @@
 extern crate serde_derive;
 extern crate serde;
 extern crate serde_urlencoded;
+extern crate url;
 
 #[derive(Deserialize, Debug)]
 pub struct Stream {
@@ -113,6 +114,8 @@ pub struct ErrorInfo {
 pub enum Error {
     JsonError(serde_urlencoded::de::Error),
     Youtube(ErrorInfo),
+    Url(url::ParseError),
+    UrlMissingVAttr,
 }
 
 impl From<serde_urlencoded::de::Error> for Error {
@@ -125,4 +128,37 @@ impl From<ErrorInfo> for Error {
     fn from(e: ErrorInfo) -> Self {
         Error::Youtube(e)
     }
+}
+
+impl From<url::ParseError> for Error {
+    fn from(e: url::ParseError) -> Self {
+        Error::Url(e)
+    }
+}
+
+/// The URL to grab video information, the video_id is passed in as a query argument.
+///
+/// See 'video_info_url()'.
+pub const GET_VIDEO_INFO_URL: &str = "https://youtube.com/get_video_info";
+
+/// Build the URL to retrieve the video information from a video id
+pub fn video_info_url(vid: &str) -> String {
+    let vid = url::percent_encoding::utf8_percent_encode(vid, url::percent_encoding::DEFAULT_ENCODE_SET).to_string();
+    format!("{}?video_id={}", GET_VIDEO_INFO_URL, vid)
+}
+
+/// Build the URL to retrieve the video information from a video url
+pub fn video_info_url_from_url(video_url: &str) -> Result<String, Error> {
+    let url = url::Url::parse(video_url)?;
+
+    let mut vid = None;
+    for (name, value) in url.query_pairs() {
+        if name == "v" {
+            vid = Some(value);
+        }
+    }
+
+    let vid = vid.ok_or(Error::UrlMissingVAttr)?;
+    let vid = url::percent_encoding::utf8_percent_encode(&vid, url::percent_encoding::DEFAULT_ENCODE_SET).to_string();
+    Ok(format!("{}?video_id={}", GET_VIDEO_INFO_URL, vid))
 }
