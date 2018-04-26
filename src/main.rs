@@ -73,16 +73,10 @@ fn download(url: &str, adaptive: bool) {
     };
 
     for (i, stream) in streams.iter().enumerate() {
-        if let Some(ref quality) = stream.quality {
-            println!("{}- {} {}",
-                     i,
-                     quality,
-                     stream.stream_type);
-        } else {
-            println!("{}- {}",
-                     i,
-                     stream.stream_type);
-        }
+        println!("{}- {} {}",
+                 i,
+                 stream.quality,
+                 stream.stream_type);
     }
 
     println!("Choose quality (0): ");

@@ -10,7 +10,8 @@ extern crate url;
 #[derive(Deserialize, Debug)]
 pub struct Stream {
     pub url: String,
-    pub quality: Option<String>,
+    #[serde(default = "String::new")]
+    pub quality: String,
     #[serde(rename = "type")]
     pub stream_type: String,
 }
